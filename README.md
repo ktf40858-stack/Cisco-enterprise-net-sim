@@ -1,4 +1,4 @@
-# Cisco-enterprise-net-sim
+Cisco-enterprise-net-sim
 CCNA-Level Enterprise Network Infrastructure Simulation
 
 This project simulates a complete enterprise network infrastructure for a company with 50 employees across two departments (Sales and Accounting). 
