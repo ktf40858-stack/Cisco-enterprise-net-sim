@@ -1,0 +1,44 @@
+enable
+configure terminal
+hostname BORDER-ROUTER
+
+! Configure interface facing the core switch
+interface gigabitEthernet 0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+
+! Configure interface facing the internet (simulated)
+interface gigabitEthernet 0/1
+ ip address 209.165.200.225 255.255.255.224
+ no shutdown
+
+! Configure DHCP service for VLANs
+ip dhcp excluded-address 192.168.10.1 192.168.10.10
+ip dhcp excluded-address 192.168.20.1 192.168.20.10
+!
+ip dhcp pool SALES-POOL
+ network 192.168.10.0 255.255.255.0
+ default-router 192.168.10.1
+ dns-server 8.8.8.8
+!
+ip dhcp pool ACCOUNTING-POOL
+ network 192.168.20.0 255.255.255.0
+ default-router 192.168.20.1
+ dns-server 8.8.8.8
+
+! Configure NAT for internet access
+access-list 1 permit 192.168.10.0 0.0.0.255
+access-list 1 permit 192.168.20.0 0.0.0.255
+ip nat inside source list 1 interface gigabitEthernet0/1 overload
+
+! Apply NAT rules to interfaces
+interface gigabitEthernet0/0
+ ip nat inside
+!
+interface gigabitEthernet0/1
+ ip nat outside
+
+! Set a default route to the internet (simulated)
+ip route 0.0.0.0 0.0.0.0 209.165.200.226
+end
+write memory

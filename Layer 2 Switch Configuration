@@ -1,0 +1,49 @@
+Layer 2 Switch Configuration
+
+! Enter privileged EXEC mode
+enable
+configure terminal
+
+! Set hostname
+hostname SW-SALES
+
+! Configure remote management (SSH)
+ip domain-name mylab.local
+crypto key generate rsa modulus 1024
+username admin secret cisco123
+line vty 0 15
+ transport input ssh
+ login local
+
+! Create VLANs
+vlan 10
+ name SALES
+vlan 99
+ name MGMT
+
+! Configure access ports for PCs
+interface range gigabitEthernet 0/1-2
+ switchport mode access
+ switchport access vlan 10
+ no shutdown
+
+! Configure trunk port to Core switch
+interface gigabitEthernet 0/24
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,99
+ no shutdown
+
+! Configure management interface
+interface vlan 99
+ ip address 192.168.99.11 255.255.255.0
+ no shutdown
+ip default-gateway 192.168.99.1
+
+! Enable port security on access ports (basic security)
+interface range gigabitEthernet 0/1-2
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+end
+write memory
