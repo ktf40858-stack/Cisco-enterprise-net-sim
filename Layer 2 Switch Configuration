@@ -7,13 +7,49 @@ configure terminal
 ! Set hostname
 hostname SW-SALES
 
-! Configure remote management (SSH)
+! Configure remote management (SSH only, 2048-bit key)
 ip domain-name mylab.local
-crypto key generate rsa modulus 1024
-username admin secret cisco123
+crypto key generate rsa modulus 2048
+ip ssh version 2
+
+! ---------------------------------------------------------------------------
+! Management-plane baseline (applied to every device in this lab)
+!
+! No password appears in this file. Set them on the device at build time:
+!   enable algorithm-type scrypt secret <ENABLE_SECRET>
+!   username <ADMIN_USER> privilege 15 algorithm-type scrypt secret <ADMIN_SECRET>
+! ---------------------------------------------------------------------------
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+service password-encryption
+no ip bootp server
+no ip source-route
+no ip http server
+ip http secure-server
+!
+banner login ^
+Authorised access only. Activity on this device is logged and monitored.
+Disconnect immediately if you are not an authorised user.
+^
+!
+logging host 192.168.99.5
+logging trap informational
+service timestamps log datetime msec localtime show-timezone
+service timestamps debug datetime msec localtime show-timezone
+!
+line con 0
+ exec-timeout 5 0
+ logging synchronous
 line vty 0 15
  transport input ssh
+ exec-timeout 5 0
  login local
+ access-class MGMT-ACCESS in
+!
+ip access-list standard MGMT-ACCESS
+ permit 192.168.99.0 0.0.0.255
+ deny   any log
 
 ! Create VLANs
 vlan 10
@@ -25,14 +61,26 @@ vlan 99
 interface range gigabitEthernet 0/1-2
  switchport mode access
  switchport access vlan 10
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
  no shutdown
 
 ! Configure trunk port to Core switch
+! Native VLAN 99 is the management VLAN and carries no access port, so a
+! double-tagging attempt has no untagged VLAN to hop out of.
 interface gigabitEthernet 0/24
  switchport mode trunk
+ switchport nonegotiate
  switchport trunk native vlan 99
  switchport trunk allowed vlan 10,99
  no shutdown
+
+! Shut and park every unused port rather than leaving it in the default VLAN
+interface range gigabitEthernet 0/3-23
+ switchport mode access
+ switchport access vlan 999
+ shutdown
 
 ! Configure management interface
 interface vlan 99
@@ -40,10 +88,24 @@ interface vlan 99
  no shutdown
 ip default-gateway 192.168.99.1
 
-! Enable port security on access ports (basic security)
+! Layer 2 protections on the access ports
 interface range gigabitEthernet 0/1-2
  switchport port-security
  switchport port-security maximum 2
  switchport port-security violation restrict
+ switchport port-security aging time 5
+ ip verify source
+!
+! DHCP snooping: the uplink is the only trusted source of DHCP offers
+ip dhcp snooping
+ip dhcp snooping vlan 10,99
+no ip dhcp snooping information option
+interface gigabitEthernet 0/24
+ ip dhcp snooping trust
+!
+! Dynamic ARP Inspection, which relies on the snooping binding table above
+ip arp inspection vlan 10,99
+interface gigabitEthernet 0/24
+ ip arp inspection trust
 end
 write memory

@@ -2,6 +2,45 @@ enable
 configure terminal
 hostname CORE-SWITCH
 
+! ---------------------------------------------------------------------------
+! Management-plane baseline (applied to every device in this lab)
+!
+! No password appears in this file. Set them on the device at build time:
+!   enable algorithm-type scrypt secret <ENABLE_SECRET>
+!   username <ADMIN_USER> privilege 15 algorithm-type scrypt secret <ADMIN_SECRET>
+! ---------------------------------------------------------------------------
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+service password-encryption
+no ip bootp server
+no ip source-route
+no ip http server
+ip http secure-server
+!
+banner login ^
+Authorised access only. Activity on this device is logged and monitored.
+Disconnect immediately if you are not an authorised user.
+^
+!
+logging host 192.168.99.5
+logging trap informational
+service timestamps log datetime msec localtime show-timezone
+service timestamps debug datetime msec localtime show-timezone
+!
+line con 0
+ exec-timeout 5 0
+ logging synchronous
+line vty 0 15
+ transport input ssh
+ exec-timeout 5 0
+ login local
+ access-class MGMT-ACCESS in
+!
+ip access-list standard MGMT-ACCESS
+ permit 192.168.99.0 0.0.0.255
+ deny   any log
+
 ! Create VLANs
 vlan 10
  name SALES
